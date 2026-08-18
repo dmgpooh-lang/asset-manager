@@ -262,33 +262,16 @@ function updateAdminBtn(){
   adminBtn.textContent = isAdmin ? "🔓 관리자 (로그아웃)" : "🔒 관리자";
 }
 
-// adminBtn 등 DOM 참조가 모두 준비된 뒤에 리스너를 등록합니다.
-onAuthStateChanged(auth, (user)=>{
-  isAdmin = !!user;
+/* ⚠️ TEST MODE: 실제 Firebase 인증 없이 버튼 클릭만으로 관리자 전환됩니다.
+   추후 권한 설정 시 이 블록을 onAuthStateChanged + signInWithEmailAndPassword 방식으로 되돌려야 합니다. */
+adminBtn.addEventListener("click", ()=>{
+  isAdmin = !isAdmin;
   updateAdminBtn();
   renderCurrentTab();
-});
-adminBtn.addEventListener("click", ()=>{
-  if(isAdmin){
-    signOut(auth);
-  } else {
-    adminPasswordInput.value = "";
-    adminOverlay.classList.add("show");
-    adminPasswordInput.focus();
-  }
+  toast(isAdmin ? "테스트 모드: 관리자로 전환했습니다." : "관리자 모드를 해제했습니다.");
 });
 document.getElementById("cancelAdminBtn").addEventListener("click", ()=> adminOverlay.classList.remove("show"));
-document.getElementById("confirmAdminBtn").addEventListener("click", tryAdminLogin);
-adminPasswordInput.addEventListener("keydown", (e)=>{ if(e.key==="Enter") tryAdminLogin(); });
-async function tryAdminLogin(){
-  try{
-    await signInWithEmailAndPassword(auth, ADMIN_EMAIL, adminPasswordInput.value);
-    adminOverlay.classList.remove("show");
-    toast("관리자로 로그인했습니다.");
-  }catch(err){
-    alert("비밀번호가 올바르지 않습니다.");
-  }
-}
+document.getElementById("confirmAdminBtn").addEventListener("click", ()=> adminOverlay.classList.remove("show"));
 
 /* ---------- 탭 전환 ---------- */
 document.querySelectorAll(".tab-btn").forEach(btn=>{
