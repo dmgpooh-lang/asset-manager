@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>회사 자산관리 · AssetHub</title>
+<style>
+:root{
+  --primary:#2563eb; --primary-dark:#1d4ed8; --bg:#f4f6f9; --card:#fff;
+  --border:#e2e8f0; --text:#1e293b; --muted:#64748b; --danger:#dc2626;
+  --radius:10px;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Pretendard","Noto Sans KR",Arial,sans-serif;background:var(--bg);color:var(--text);font-size:15px;}
+a{color:var(--primary);text-decoration:none;}
+.container{max-width:1100px;margin:0 auto;padding:20px 16px 60px;}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20;}
+.topbar-inner{max-width:1100px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+.brand{font-weight:700;font-size:18px;color:var(--text);}
+.tabs{display:flex;gap:6px;flex:1;flex-wrap:wrap;}
+.tab-btn{background:transparent;border:none;padding:8px 14px;border-radius:8px;font-weight:600;font-size:14px;color:var(--muted);cursor:pointer;}
+.tab-btn:hover{background:#f1f5f9;}
+.tab-btn.active{color:var(--primary);background:#eef2ff;}
+.spacer{flex:1;}
+.btn{display:inline-block;padding:8px 16px;border-radius:8px;border:1px solid transparent;font-size:14px;font-weight:600;cursor:pointer;background:#fff;}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-primary:hover{background:var(--primary-dark);}
+.btn-secondary{background:#fff;color:var(--text);border-color:var(--border);}
+.btn-secondary:hover{background:#f1f5f9;}
+.btn-ghost{background:transparent;color:var(--muted);border-color:transparent;}
+.btn-ghost:hover{background:#f1f5f9;}
+.btn-danger{background:#fff;color:var(--danger);border-color:#fecaca;}
+.btn-danger:hover{background:#fef2f2;}
+.btn-sm{padding:4px 10px;font-size:12px;}
+.btn-block{width:100%;}
+.btn[disabled]{opacity:.5;cursor:not-allowed;}
+.page-title{font-size:20px;margin:0 0 14px;}
+.page-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
+.muted{color:var(--muted);font-size:13px;}
+.empty{color:var(--muted);padding:16px 0;text-align:center;}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:18px;}
+.panel h2{font-size:15px;margin:0 0 12px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+@media (max-width:720px){.two-col{grid-template-columns:1fr;}}
+.stat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
+@media (max-width:900px){.stat-grid{grid-template-columns:repeat(2,1fr);}}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;}
+.stat-label{font-size:12px;color:var(--muted);margin-bottom:6px;}
+.stat-value{font-size:22px;font-weight:700;}
+.table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.table th,.table td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:13.5px;}
+.table th{background:#f8fafc;color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;}
+.table tr:last-child td{border-bottom:none;}
+.row-link{cursor:pointer;}
+.row-link:hover{background:#f8fafc;}
+.kv{width:100%;}
+.kv th{width:110px;text-align:left;color:var(--muted);font-weight:500;padding:7px 0;vertical-align:top;}
+.kv td{padding:7px 0;}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;}
+.badge-available{background:#dcfce7;color:#166534;}
+.badge-in_use{background:#dbeafe;color:#1e40af;}
+.badge-maintenance{background:#fef3c7;color:#92400e;}
+.badge-disposed{background:#f1f5f9;color:#64748b;}
+.form label{display:block;margin:12px 0 6px;font-weight:600;font-size:13px;}
+.form label:first-child{margin-top:0;}
+.form input,.form select,.form textarea{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;}
+.form textarea{resize:vertical;}
+.form-actions{margin-top:18px;display:flex;gap:10px;}
+.inline-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.inline-form input,.inline-form select{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;}
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.filter-bar input,.filter-bar select{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;}
+.filter-bar input[type=text]{flex:1;min-width:180px;}
+.list{list-style:none;padding:0;margin:0;}
+.list li{padding:7px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
+.list li:last-child{border-bottom:none;}
+.bar-list{list-style:none;padding:0;margin:0;}
+.bar-list li{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px;}
+.bar-label{width:110px;flex-shrink:0;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bar-track{flex:1;background:#f1f5f9;border-radius:999px;height:10px;overflow:hidden;}
+.bar-fill{display:block;height:100%;background:var(--primary);border-radius:999px;}
+.bar-count{width:28px;text-align:right;font-weight:600;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);align-items:center;justify-content:center;z-index:100;padding:16px;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;padding:22px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;}
+.modal.wide{max-width:760px;}
+.modal h3{margin:0 0 14px;font-size:17px;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 18px;border-radius:8px;font-size:13.5px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+.status-line{font-size:12px;color:var(--muted);margin-bottom:12px;}
+.checkbox-label{display:flex;align-items:center;gap:8px;font-weight:500;}
+.checkbox-label input{width:auto;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="brand">📦 AssetHub</span>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="dashboard">대시보드</button>
+      <button class="tab-btn" data-tab="assets">자산</button>
+      <button class="tab-btn" data-tab="loans">대여/반납</button>
+    </nav>
+    <div class="spacer"></div>
+    <button class="btn btn-secondary btn-sm" id="adminBtn">🔒 관리자</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="status-line" id="statusLine">연결 중…</div>
+
+  <section id="view-dashboard"></section>
+  <section id="view-assets" style="display:none"></section>
+  <section id="view-loans" style="display:none"></section>
+</div>
+
+<!-- 관리자 로그인 -->
+<div class="overlay" id="adminOverlay">
+  <div class="modal">
+    <h3>관리자 로그인</h3>
+    <p class="muted">캘린더와 동일한 관리자 계정으로 로그인합니다.</p>
+    <input type="password" id="adminPasswordInput" placeholder="비밀번호" autocomplete="off">
+    <div class="form-actions">
+      <button class="btn btn-primary" id="confirmAdminBtn">로그인</button>
+      <button class="btn btn-ghost" id="cancelAdminBtn">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 자산 상세 -->
+<div class="overlay" id="assetDetailOverlay">
+  <div class="modal wide">
+    <div id="assetDetailContent"></div>
+    <div class="form-actions"><button class="btn btn-ghost" id="closeDetailBtn">닫기</button></div>
+  </div>
+</div>
+
+<!-- 자산 등록/수정 -->
+<div class="overlay" id="assetFormOverlay">
+  <div class="modal">
+    <h3 id="assetFormTitle">새 자산 등록</h3>
+    <div class="form" id="assetFormBody"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="saveAssetBtn">저장</button>
+      <button class="btn btn-ghost" id="cancelAssetFormBtn">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 카테고리 관리 -->
+<div class="overlay" id="categoryOverlay">
+  <div class="modal">
+    <h3>카테고리 관리</h3>
+    <div class="inline-form" style="margin-bottom:14px;">
+      <input type="text" id="newCategoryName" placeholder="카테고리명">
+      <input type="number" id="newCategoryYears" placeholder="감가상각 연수(선택)" style="width:140px;">
+      <button class="btn btn-primary btn-sm" id="addCategoryBtn">추가</button>
+    </div>
+    <table class="table" id="categoryTable"></table>
+    <div class="form-actions"><button class="btn btn-ghost" id="closeCategoryBtn">닫기</button></div>
+  </div>
+</div>
+
+<!-- 자산 지급 -->
+<div class="overlay" id="loanFormOverlay">
+  <div class="modal">
+    <h3>자산 지급</h3>
+    <div class="form" id="loanFormBody"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="saveLoanBtn">지급하기</button>
+      <button class="btn btn-ghost" id="cancelLoanFormBtn">취소</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, getDoc,
+  onSnapshot, query, where, orderBy, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+/* uiux-team-calendar와 같은 Firebase 프로젝트를 재사용합니다.
+   (컬렉션 이름은 am_ 접두사로 분리해서 캘린더 데이터와 섞이지 않습니다) */
+const firebaseConfig = {
+  apiKey: "AIzaSyACTQbxR26Rqfe36KX9VNJu3yp_yosaoZs",
+  authDomain: "uiux-team-calendar.firebaseapp.com",
+  projectId: "uiux-team-calendar",
+  storageBucket: "uiux-team-calendar.firebasestorage.app",
+  messagingSenderId: "884030160400",
+  appId: "1:884030160400:web:35de49a6c9853a0492d495"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+/* 캘린더와 동일한 관리자 계정 이메일 (Firebase 콘솔 Authentication에 등록된 값과 맞춰주세요) */
+const ADMIN_EMAIL = "admin@uiux-team-calendar.app"; // TODO: 실제 관리자 계정 이메일로 변경
+
+const categoriesCol = collection(db, "am_categories");
+const assetsCol = collection(db, "am_assets");
+const historyCol = collection(db, "am_history");
+const loansCol = collection(db, "am_loans");
+const maintenanceCol = collection(db, "am_maintenance");
+
+const STATUS_LABEL = {available:"사용 가능", in_use:"사용/지급중", maintenance:"점검중", disposed:"폐기됨"};
+const EVENT_LABEL = {registered:"등록", assigned:"지급", returned:"반납", updated:"정보수정", maintenance:"점검", disposed:"폐기"};
+
+let isAdmin = false;
+let categories = [];
+let assets = [];
+let categoriesLoaded = false, assetsLoaded = false;
+
+let currentTab = "dashboard";
+let currentDetailAssetId = null;
+let detailUnsubs = [];
+let editingAssetId = null;
+let loanPresetAssetId = null;
+let loanAvailableAssets = [];
+
+/* ---------- 유틸 ---------- */
+function won(v){
+  if(v === null || v === undefined || v === "") return "-";
+  const n = Number(v);
+  if(Number.isNaN(n)) return "-";
+  return n.toLocaleString("ko-KR") + "원";
+}
+function escapeHtml(s){
+  return (s||"").toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDate(ts){
+  if(!ts) return "-";
+  if(typeof ts === "string") return ts;
+  if(ts.toDate) return ts.toDate().toLocaleString("ko-KR");
+  return "-";
+}
+function toast(msg){
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  setTimeout(()=>el.classList.remove("show"), 2500);
+}
+function categoryName(id){
+  const c = categories.find(c=>c.id===id);
+  return c ? c.name : "-";
+}
+
+/* ---------- 관리자 로그인 ----------
+   ⚠️ Firebase 콘솔 Authentication에서 Anonymous 로그인은 켜지 마세요.
+   request.auth != null 을 곧 "관리자"로 간주하는 규칙입니다. */
+const adminBtn = document.getElementById("adminBtn");
+const adminOverlay = document.getElementById("adminOverlay");
+const adminPasswordInput = document.getElementById("adminPasswordInput");
+
+function updateAdminBtn(){
+  adminBtn.textContent = isAdmin ? "🔓 관리자 (로그아웃)" : "🔒 관리자";
+}
+
+// adminBtn 등 DOM 참조가 모두 준비된 뒤에 리스너를 등록합니다.
+onAuthStateChanged(auth, (user)=>{
+  isAdmin = !!user;
+  updateAdminBtn();
+  renderCurrentTab();
+});
+adminBtn.addEventListener("click", ()=>{
+  if(isAdmin){
+    signOut(auth);
+  } else {
+    adminPasswordInput.value = "";
+    adminOverlay.classList.add("show");
+    adminPasswordInput.focus();
+  }
+});
+document.getElementById("cancelAdminBtn").addEventListener("click", ()=> adminOverlay.classList.remove("show"));
+document.getElementById("confirmAdminBtn").addEventListener("click", tryAdminLogin);
+adminPasswordInput.addEventListener("keydown", (e)=>{ if(e.key==="Enter") tryAdminLogin(); });
+async function tryAdminLogin(){
+  try{
+    await signInWithEmailAndPassword(auth, ADMIN_EMAIL, adminPasswordInput.value);
+    adminOverlay.classList.remove("show");
+    toast("관리자로 로그인했습니다.");
+  }catch(err){
+    alert("비밀번호가 올바르지 않습니다.");
+  }
+}
+
+/* ---------- 탭 전환 ---------- */
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    currentTab = btn.dataset.tab;
+    ["dashboard","assets","loans"].forEach(t=>{
+      document.getElementById("view-"+t).style.display = (t===currentTab) ? "" : "none";
+    });
+    renderCurrentTab();
+  });
+});
+function renderCurrentTab(){
+  if(currentTab==="dashboard") renderDashboard();
+  else if(currentTab==="assets") renderAssetsView();
+  else if(currentTab==="loans") renderLoansView();
+}
+
+/* ---------- 실시간 구독: 카테고리 / 자산 ---------- */
+onSnapshot(query(categoriesCol, orderBy("name")), (snap)=>{
+  categories = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  categoriesLoaded = true;
+  renderCurrentTab();
+  if(document.getElementById("categoryOverlay").classList.contains("show")) renderCategoryTable();
+}, (err)=>{ document.getElementById("statusLine").textContent = "카테고리 로딩 오류: " + err.message; });
+
+onSnapshot(assetsCol, (snap)=>{
+  assets = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  assetsLoaded = true;
+  document.getElementById("statusLine").textContent = "연결됨 · 자산 " + assets.length + "개";
+  renderCurrentTab();
+}, (err)=>{ document.getElementById("statusLine").textContent = "자산 로딩 오류: " + err.message; });
+
+/* ================= 대시보드 ================= */
+function renderDashboard(){
+  if(currentTab!=="dashboard") return;
+  const el = document.getElementById("view-dashboard");
+  if(!assetsLoaded || !categoriesLoaded){ el.innerHTML = '<p class="empty">불러오는 중…</p>'; return; }
+
+  const active = assets.filter(a=>a.status!=="disposed");
+  const countBy = s => assets.filter(a=>a.status===s).length;
+  const totalValue = active.reduce((sum,a)=> sum + (Number(a.purchasePrice)||0), 0);
+
+  const catCounts = categories.map(c=>({
+    name:c.name, cnt: assets.filter(a=>a.categoryId===c.id).length
+  })).sort((a,b)=>b.cnt-a.cnt);
+  const maxCat = Math.max(1, ...catCounts.map(c=>c.cnt));
+
+  const today = new Date(); const in30 = new Date(); in30.setDate(today.getDate()+30);
+  const toDateStr = d => d.toISOString().slice(0,10);
+  const warrantySoon = assets.filter(a=>a.warrantyUntil && a.status!=="disposed"
+      && a.warrantyUntil >= toDateStr(today) && a.warrantyUntil <= toDateStr(in30))
+    .sort((a,b)=> a.warrantyUntil.localeCompare(b.warrantyUntil)).slice(0,8);
+
+  el.innerHTML = `
+    <h1 class="page-title">대시보드</h1>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">전체 자산</div><div class="stat-value">${assets.length}</div></div>
+      <div class="stat-card"><div class="stat-label">사용 가능</div><div class="stat-value">${countBy("available")}</div></div>
+      <div class="stat-card"><div class="stat-label">사용/지급중</div><div class="stat-value">${countBy("in_use")}</div></div>
+      <div class="stat-card"><div class="stat-label">점검중</div><div class="stat-value">${countBy("maintenance")}</div></div>
+      <div class="stat-card"><div class="stat-label">보유 자산 총액</div><div class="stat-value">${won(totalValue)}</div></div>
+    </div>
+    <div class="two-col">
+      <section class="panel">
+        <h2>카테고리별 보유 현황</h2>
+        ${catCounts.length ? `<ul class="bar-list">${catCounts.map(c=>`
+          <li><span class="bar-label">${escapeHtml(c.name)}</span>
+              <span class="bar-track"><span class="bar-fill" style="width:${c.cnt/maxCat*100}%"></span></span>
+              <span class="bar-count">${c.cnt}</span></li>`).join("")}</ul>`
+          : `<p class="empty">카테고리가 없습니다.</p>`}
+      </section>
+      <section class="panel">
+        <h2>보증 만료 임박 (30일 이내)</h2>
+        ${warrantySoon.length ? `<ul class="list">${warrantySoon.map(a=>`
+          <li><a href="#" data-open-asset="${a.id}">${escapeHtml(a.name)}</a> <span class="muted">${a.warrantyUntil} 만료</span></li>`).join("")}</ul>`
+          : `<p class="empty">임박한 항목이 없습니다.</p>`}
+      </section>
+    </div>
+  `;
+  el.querySelectorAll("[data-open-asset]").forEach(a=>{
+    a.addEventListener("click",(e)=>{ e.preventDefault(); openAssetDetail(a.dataset.openAsset); });
+  });
+}
+
+/* ================= 자산 목록 ================= */
+function renderAssetsView(){
+  if(currentTab!=="assets") return;
+  const el = document.getElementById("view-assets");
+  const q = el.dataset.q || "";
+  const catFilter = el.dataset.cat || "";
+  const statusFilter = el.dataset.status || "";
+
+  let rows = assets.slice();
+  if(q) rows = rows.filter(a => (a.name||"").includes(q) || (a.assetCode||"").includes(q));
+  if(catFilter) rows = rows.filter(a => a.categoryId === catFilter);
+  if(statusFilter) rows = rows.filter(a => a.status === statusFilter);
+  rows.sort((a,b)=> (b.createdAtMs||0) - (a.createdAtMs||0) || (a.assetCode||"").localeCompare(b.assetCode||""));
+
+  el.innerHTML = `
+    <div class="page-header">
+      <h1 class="page-title">자산 목록</h1>
+      <div class="inline-form">
+        ${isAdmin ? `<button class="btn btn-secondary btn-sm" id="manageCategoriesBtn">카테고리 관리</button>
+                     <button class="btn btn-primary btn-sm" id="newAssetBtn">+ 새 자산 등록</button>` : ``}
+      </div>
+    </div>
+    <form class="filter-bar" id="assetFilterForm">
+      <input type="text" id="filterQ" placeholder="자산명 또는 자산코드 검색" value="${escapeHtml(q)}">
+      <select id="filterCat">
+        <option value="">전체 카테고리</option>
+        ${categories.map(c=>`<option value="${c.id}" ${c.id===catFilter?"selected":""}>${escapeHtml(c.name)}</option>`).join("")}
+      </select>
+      <select id="filterStatus">
+        <option value="">전체 상태</option>
+        ${Object.entries(STATUS_LABEL).map(([k,v])=>`<option value="${k}" ${k===statusFilter?"selected":""}>${v}</option>`).join("")}
+      </select>
+      <button type="submit" class="btn btn-secondary btn-sm">검색</button>
+    </form>
+    <table class="table">
+      <thead><tr><th>자산코드</th><th>자산명</th><th>카테고리</th><th>상태</th><th>보유자</th><th>위치</th></tr></thead>
+      <tbody>
+        ${rows.length ? rows.map(a=>`
+          <tr class="row-link" data-open-asset="${a.id}">
+            <td>${escapeHtml(a.assetCode)}</td>
+            <td>${escapeHtml(a.name)}</td>
+            <td>${escapeHtml(categoryName(a.categoryId))}</td>
+            <td><span class="badge badge-${a.status}">${STATUS_LABEL[a.status]||a.status}</span></td>
+            <td>${escapeHtml(a.holderName||"-")}</td>
+            <td>${escapeHtml(a.location||"-")}</td>
+          </tr>`).join("") : `<tr><td colspan="6" class="empty">조건에 맞는 자산이 없습니다.</td></tr>`}
+      </tbody>
+    </table>
+  `;
+  el.querySelectorAll("[data-open-asset]").forEach(tr=>{
+    tr.addEventListener("click", ()=> openAssetDetail(tr.dataset.openAsset));
+  });
+  document.getElementById("assetFilterForm").addEventListener("submit",(e)=>{
+    e.preventDefault();
+    el.dataset.q = document.getElementById("filterQ").value.trim();
+    el.dataset.cat = document.getElementById("filterCat").value;
+    el.dataset.status = document.getElementById("filterStatus").value;
+    renderAssetsView();
+  });
+  if(isAdmin){
+    document.getElementById("newAssetBtn").addEventListener("click", ()=> openAssetForm(null));
+    document.getElementById("manageCategoriesBtn").addEventListener("click", openCategoryManager);
+  }
+}
+
+/* ================= 자산 등록/수정 ================= */
+function openAssetForm(asset){
+  if(!isAdmin) return;
+  editingAssetId = asset ? asset.id : null;
+  document.getElementById("assetFormTitle").textContent = asset ? "자산 수정" : "새 자산 등록";
+  document.getElementById("assetFormBody").innerHTML = `
+    <label>자산코드 *</label>
+    <input type="text" id="fCode" value="${escapeHtml(asset?.assetCode||"")}" ${asset?"readonly":""} placeholder="예: IT-0001">
+    <label>자산명 *</label>
+    <input type="text" id="fName" value="${escapeHtml(asset?.name||"")}">
+    <label>카테고리 *</label>
+    <select id="fCategory">
+      <option value="">선택하세요</option>
+      ${categories.map(c=>`<option value="${c.id}" ${asset?.categoryId===c.id?"selected":""}>${escapeHtml(c.name)}</option>`).join("")}
+    </select>
+    <label>구매일</label><input type="date" id="fPurchaseDate" value="${asset?.purchaseDate||""}">
+    <label>구매가 (원)</label><input type="number" id="fPrice" value="${asset?.purchasePrice ?? ""}">
+    <label>보증만료일</label><input type="date" id="fWarranty" value="${asset?.warrantyUntil||""}">
+    <label>위치/보관장소</label><input type="text" id="fLocation" value="${escapeHtml(asset?.location||"")}">
+    <label>비고</label><textarea id="fNotes" rows="3">${escapeHtml(asset?.notes||"")}</textarea>
+  `;
+  document.getElementById("assetFormOverlay").classList.add("show");
+}
+document.getElementById("cancelAssetFormBtn").addEventListener("click", ()=>{
+  document.getElementById("assetFormOverlay").classList.remove("show");
+});
+document.getElementById("saveAssetBtn").addEventListener("click", async ()=>{
+  const assetCode = document.getElementById("fCode").value.trim();
+  const name = document.getElementById("fName").value.trim();
+  const categoryId = document.getElementById("fCategory").value;
+  const purchaseDate = document.getElementById("fPurchaseDate").value || null;
+  const purchasePriceRaw = document.getElementById("fPrice").value;
+  const purchasePrice = purchasePriceRaw === "" ? null : Number(purchasePriceRaw);
+  const warrantyUntil = document.getElementById("fWarranty").value || null;
+  const location = document.getElementById("fLocation").value.trim() || null;
+  const notes = document.getElementById("fNotes").value.trim() || null;
+
+  if(!assetCode || !name || !categoryId){ alert("자산코드, 자산명, 카테고리는 필수입니다."); return; }
+
+  if(editingAssetId){
+    await updateDoc(doc(db,"am_assets", editingAssetId), {
+      name, categoryId, purchaseDate, purchasePrice, warrantyUntil, location, notes,
+      updatedAt: serverTimestamp()
+    });
+    await addDoc(historyCol, {assetId: editingAssetId, eventType:"updated", memo:"자산 정보 수정", createdAt: serverTimestamp()});
+    toast("자산 정보가 수정되었습니다.");
+    document.getElementById("assetFormOverlay").classList.remove("show");
+    if(currentDetailAssetId===editingAssetId) openAssetDetail(editingAssetId);
+  } else {
+    if(assets.some(a=>a.assetCode===assetCode)){ alert("이미 존재하는 자산코드입니다."); return; }
+    const ref = await addDoc(assetsCol, {
+      assetCode, name, categoryId, purchaseDate, purchasePrice, warrantyUntil, location, notes,
+      status:"available", holderName:null, holderDept:null,
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    });
+    await addDoc(historyCol, {assetId: ref.id, eventType:"registered", memo:"자산 등록: "+name, createdAt: serverTimestamp()});
+    toast("자산이 등록되었습니다.");
+    document.getElementById("assetFormOverlay").classList.remove("show");
+    openAssetDetail(ref.id);
+  }
+});
+
+/* ================= 카테고리 관리 ================= */
+function openCategoryManager(){
+  if(!isAdmin) return;
+  renderCategoryTable();
+  document.getElementById("categoryOverlay").classList.add("show");
+}
+function renderCategoryTable(){
+  const t = document.getElementById("categoryTable");
+  t.innerHTML = `
+    <thead><tr><th>카테고리명</th><th>감가상각(년)</th><th>등록 자산 수</th></tr></thead>
+    <tbody>
+      ${categories.length ? categories.map(c=>`
+        <tr><td>${escapeHtml(c.name)}</td><td>${c.depreciationYears ?? "-"}</td>
+            <td>${assets.filter(a=>a.categoryId===c.id).length}</td></tr>`).join("")
+        : `<tr><td colspan="3" class="empty">카테고리가 없습니다.</td></tr>`}
+    </tbody>`;
+}
+document.getElementById("closeCategoryBtn").addEventListener("click", ()=>{
+  document.getElementById("categoryOverlay").classList.remove("show");
+});
+document.getElementById("addCategoryBtn").addEventListener("click", async ()=>{
+  const name = document.getElementById("newCategoryName").value.trim();
+  const yearsRaw = document.getElementById("newCategoryYears").value;
+  if(!name) return;
+  if(categories.some(c=>c.name===name)){ alert("이미 존재하는 카테고리입니다."); return; }
+  await addDoc(categoriesCol, {name, depreciationYears: yearsRaw ? Number(yearsRaw) : null});
+  document.getElementById("newCategoryName").value = "";
+  document.getElementById("newCategoryYears").value = "";
+  toast("카테고리가 추가되었습니다.");
+});
+
+/* ================= 자산 상세 ================= */
+function openAssetDetail(assetId){
+  currentDetailAssetId = assetId;
+  detailUnsubs.forEach(u=>u());
+  detailUnsubs = [];
+
+  let history = [], loans = [], maintenance = [];
+  const rerender = ()=> renderAssetDetailBody(assetId, history, loans, maintenance);
+
+  detailUnsubs.push(onSnapshot(query(historyCol, where("assetId","==",assetId)), (snap)=>{
+    history = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=> (b.createdAt?.toMillis?.()||0) - (a.createdAt?.toMillis?.()||0));
+    rerender();
+  }));
+  detailUnsubs.push(onSnapshot(query(loansCol, where("assetId","==",assetId)), (snap)=>{
+    loans = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=> (b.createdAt?.toMillis?.()||0) - (a.createdAt?.toMillis?.()||0));
+    rerender();
+  }));
+  detailUnsubs.push(onSnapshot(query(maintenanceCol, where("assetId","==",assetId)), (snap)=>{
+    maintenance = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=> (a.dueDate||"").localeCompare(b.dueDate||""));
+    rerender();
+  }));
+
+  document.getElementById("assetDetailOverlay").classList.add("show");
+  rerender();
+}
+document.getElementById("closeDetailBtn").addEventListener("click", ()=>{
+  document.getElementById("assetDetailOverlay").classList.remove("show");
+  detailUnsubs.forEach(u=>u()); detailUnsubs = [];
+  currentDetailAssetId = null;
+});
+
+function renderAssetDetailBody(assetId, history, loans, maintenance){
+  const a = assets.find(x=>x.id===assetId);
+  const el = document.getElementById("assetDetailContent");
+  if(!a){ el.innerHTML = '<p class="empty">자산을 찾을 수 없습니다 (삭제되었을 수 있습니다).</p>'; return; }
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div><h3 style="margin:0">${escapeHtml(a.name)}</h3><p class="muted">${escapeHtml(a.assetCode)} · ${escapeHtml(categoryName(a.categoryId))}</p></div>
+      ${isAdmin ? `<div class="inline-form">
+        <button class="btn btn-secondary btn-sm" id="editAssetBtn">수정</button>
+        ${a.status==="available" ? `<button class="btn btn-primary btn-sm" id="assignAssetBtn">지급하기</button>`:``}
+        ${a.status!=="disposed" ? `<button class="btn btn-danger btn-sm" id="disposeAssetBtn">폐기</button>`:``}
+      </div>` : ``}
+    </div>
+    <div class="two-col">
+      <div>
+        <table class="kv">
+          <tr><th>상태</th><td><span class="badge badge-${a.status}">${STATUS_LABEL[a.status]||a.status}</span></td></tr>
+          <tr><th>보유자</th><td>${escapeHtml(a.holderName||"-")}${a.holderDept?` (${escapeHtml(a.holderDept)})`:""}</td></tr>
+          <tr><th>구매일</th><td>${a.purchaseDate||"-"}</td></tr>
+          <tr><th>구매가</th><td>${won(a.purchasePrice)}</td></tr>
+          <tr><th>보증만료일</th><td>${a.warrantyUntil||"-"}</td></tr>
+          <tr><th>위치</th><td>${escapeHtml(a.location||"-")}</td></tr>
+          <tr><th>비고</th><td>${escapeHtml(a.notes||"-")}</td></tr>
+        </table>
+      </div>
+      <div>
+        <h4>점검/보증 일정</h4>
+        ${isAdmin ? `<div class="inline-form" style="margin-bottom:10px;">
+          <select id="mtType"><option value="inspection">정기점검</option><option value="warranty">보증관련</option></select>
+          <input type="date" id="mtDue">
+          <input type="text" id="mtMemo" placeholder="메모" style="width:110px;">
+          <button class="btn btn-secondary btn-sm" id="addMaintenanceBtn">추가</button>
+        </div>` : ``}
+        ${maintenance.length ? `<ul class="list">${maintenance.map(m=>`
+          <li>${m.dueDate} — ${m.type==="inspection"?"정기점검":"보증관련"}
+            ${m.completed ? `<span class="badge badge-available">완료</span>`
+              : (isAdmin ? `<button class="btn btn-ghost btn-sm" data-complete-mt="${m.id}">완료처리</button>` : `<span class="badge badge-maintenance">예정</span>`)}
+            ${m.memo?` <span class="muted">(${escapeHtml(m.memo)})</span>`:""}
+          </li>`).join("")}</ul>` : `<p class="empty">등록된 일정이 없습니다.</p>`}
+      </div>
+    </div>
+    <section class="panel">
+      <h2>대여/지급 이력</h2>
+      ${loans.length ? `<table class="table"><thead><tr><th>보유자</th><th>지급일</th><th>반납예정</th><th>반납일</th><th>상태</th>${isAdmin?"<th></th>":""}</tr></thead>
+        <tbody>${loans.map(l=>`
+          <tr><td>${escapeHtml(l.holderName)}</td><td>${l.loanDate||"-"}</td><td>${l.dueDate||"-"}</td><td>${l.returnDate||"-"}</td>
+          <td>${l.status==="active"?`<span class="badge badge-in_use">대여중</span>`:`<span class="badge badge-available">반납완료</span>`}</td>
+          ${isAdmin && l.status==="active" ? `<td><button class="btn btn-ghost btn-sm" data-return-loan="${l.id}">반납처리</button></td>` : (isAdmin?"<td></td>":"")}
+          </tr>`).join("")}</tbody></table>` : `<p class="empty">대여 이력이 없습니다.</p>`}
+    </section>
+    <section class="panel">
+      <h2>변경 이력</h2>
+      ${history.length ? `<ul class="list">${history.map(h=>`
+        <li><span class="muted">${fmtDate(h.createdAt)}</span> — <strong>${EVENT_LABEL[h.eventType]||h.eventType}</strong>
+        ${h.targetName?` → ${escapeHtml(h.targetName)}`:""} ${h.memo?`<span class="muted">(${escapeHtml(h.memo)})</span>`:""}</li>`).join("")}</ul>`
+        : `<p class="empty">이력이 없습니다.</p>`}
+    </section>
+  `;
+
+  if(isAdmin){
+    document.getElementById("editAssetBtn")?.addEventListener("click", ()=> openAssetForm(a));
+    document.getElementById("assignAssetBtn")?.addEventListener("click", ()=> openLoanForm(a.id));
+    document.getElementById("disposeAssetBtn")?.addEventListener("click", async ()=>{
+      if(!confirm("이 자산을 폐기 처리할까요?")) return;
+      await updateDoc(doc(db,"am_assets",a.id), {status:"disposed", holderName:null, holderDept:null, updatedAt: serverTimestamp()});
+      await addDoc(historyCol, {assetId:a.id, eventType:"disposed", memo:"폐기 처리", createdAt: serverTimestamp()});
+      toast("자산이 폐기 처리되었습니다.");
+    });
+    document.getElementById("addMaintenanceBtn")?.addEventListener("click", async ()=>{
+      const type = document.getElementById("mtType").value;
+      const dueDate = document.getElementById("mtDue").value;
+      const memo = document.getElementById("mtMemo").value.trim() || null;
+      if(!dueDate){ alert("점검 예정일을 선택해주세요."); return; }
+      await addDoc(maintenanceCol, {assetId:a.id, type, dueDate, completed:false, memo, createdAt: serverTimestamp()});
+      if(type==="inspection" && a.status==="available"){
+        await updateDoc(doc(db,"am_assets",a.id), {status:"maintenance", updatedAt: serverTimestamp()});
+      }
+      await addDoc(historyCol, {assetId:a.id, eventType:"maintenance", memo:"점검/보증 일정 등록 ("+dueDate+")", createdAt: serverTimestamp()});
+      toast("점검 일정이 등록되었습니다.");
+    });
+    el.querySelectorAll("[data-complete-mt]").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        await updateDoc(doc(db,"am_maintenance", btn.dataset.completeMt), {completed:true});
+        const cur = assets.find(x=>x.id===a.id);
+        if(cur && cur.status==="maintenance"){
+          const newStatus = cur.holderName ? "in_use" : "available";
+          await updateDoc(doc(db,"am_assets",a.id), {status:newStatus, updatedAt: serverTimestamp()});
+        }
+        await addDoc(historyCol, {assetId:a.id, eventType:"maintenance", memo:"점검 완료 처리", createdAt: serverTimestamp()});
+        toast("점검이 완료 처리되었습니다.");
+      });
+    });
+    el.querySelectorAll("[data-return-loan]").forEach(btn=>{
+      btn.addEventListener("click", ()=> returnLoan(btn.dataset.returnLoan, a.id));
+    });
+  }
+}
+
+/* ================= 대여/반납 ================= */
+function renderLoansView(){
+  if(currentTab!=="loans") return;
+  const el = document.getElementById("view-loans");
+  el.innerHTML = `
+    <div class="page-header">
+      <h1 class="page-title">대여/반납 관리</h1>
+      ${isAdmin ? `<button class="btn btn-primary btn-sm" id="newLoanBtn">+ 자산 지급</button>` : ``}
+    </div>
+    <div id="loansTableWrap"><p class="empty">불러오는 중…</p></div>
+  `;
+  if(isAdmin){
+    document.getElementById("newLoanBtn").addEventListener("click", ()=> openLoanForm(null));
+  }
+  subscribeLoansView();
+}
+let loansViewUnsub = null;
+function subscribeLoansView(){
+  if(loansViewUnsub) loansViewUnsub();
+  loansViewUnsub = onSnapshot(query(loansCol, orderBy("createdAt","desc")), (snap)=>{
+    if(currentTab!=="loans") return;
+    const loans = snap.docs.map(d=>({id:d.id,...d.data()}));
+    const wrap = document.getElementById("loansTableWrap");
+    if(!wrap) return;
+    wrap.innerHTML = `
+      <table class="table">
+        <thead><tr><th>자산</th><th>보유자</th><th>부서</th><th>지급일</th><th>반납예정</th><th>반납일</th><th>상태</th>${isAdmin?"<th></th>":""}</tr></thead>
+        <tbody>
+        ${loans.length ? loans.map(l=>{
+          const asset = assets.find(a=>a.id===l.assetId);
+          return `<tr>
+            <td>${asset ? `<a href="#" data-open-asset="${asset.id}">${escapeHtml(asset.name)}</a>` : "(삭제된 자산)"}</td>
+            <td>${escapeHtml(l.holderName)}</td><td>${escapeHtml(l.holderDept||"-")}</td>
+            <td>${l.loanDate||"-"}</td><td>${l.dueDate||"-"}</td><td>${l.returnDate||"-"}</td>
+            <td>${l.status==="active"?`<span class="badge badge-in_use">대여중</span>`:`<span class="badge badge-available">반납완료</span>`}</td>
+            ${isAdmin ? `<td>${l.status==="active"?`<button class="btn btn-ghost btn-sm" data-return-loan="${l.id}" data-asset="${l.assetId}">반납처리</button>`:""}</td>` : ""}
+          </tr>`;
+        }).join("") : `<tr><td colspan="8" class="empty">내역이 없습니다.</td></tr>`}
+        </tbody>
+      </table>`;
+    wrap.querySelectorAll("[data-open-asset]").forEach(a=>{
+      a.addEventListener("click",(e)=>{ e.preventDefault(); openAssetDetail(a.dataset.openAsset); });
+    });
+    wrap.querySelectorAll("[data-return-loan]").forEach(btn=>{
+      btn.addEventListener("click", ()=> returnLoan(btn.dataset.returnLoan, btn.dataset.asset));
+    });
+  });
+}
+
+function openLoanForm(assetId){
+  if(!isAdmin) return;
+  loanPresetAssetId = assetId;
+  loanAvailableAssets = assets.filter(a=>a.status==="available");
+  document.getElementById("loanFormBody").innerHTML = `
+    <label>자산 *</label>
+    <select id="lAsset">
+      <option value="">선택하세요</option>
+      ${loanAvailableAssets.map(a=>`<option value="${a.id}" ${a.id===assetId?"selected":""}>${escapeHtml(a.assetCode)} · ${escapeHtml(a.name)}</option>`).join("")}
+    </select>
+    <label>지급 대상 (이름) *</label>
+    <input type="text" id="lHolderName" placeholder="예: 김민수">
+    <label>부서</label>
+    <input type="text" id="lHolderDept" placeholder="예: 개발팀">
+    <label>반납예정일</label>
+    <input type="date" id="lDue">
+    <label>메모</label>
+    <textarea id="lMemo" rows="2"></textarea>
+  `;
+  document.getElementById("loanFormOverlay").classList.add("show");
+}
+document.getElementById("cancelLoanFormBtn").addEventListener("click", ()=>{
+  document.getElementById("loanFormOverlay").classList.remove("show");
+});
+document.getElementById("saveLoanBtn").addEventListener("click", async ()=>{
+  const assetId = document.getElementById("lAsset").value;
+  const holderName = document.getElementById("lHolderName").value.trim();
+  const holderDept = document.getElementById("lHolderDept").value.trim() || null;
+  const dueDate = document.getElementById("lDue").value || null;
+  const memo = document.getElementById("lMemo").value.trim() || null;
+  if(!assetId || !holderName){ alert("자산과 지급 대상 이름은 필수입니다."); return; }
+  const asset = assets.find(a=>a.id===assetId);
+  if(!asset || asset.status!=="available"){ alert("지급 가능한 상태의 자산이 아닙니다."); return; }
+
+  const today = new Date().toISOString().slice(0,10);
+  await addDoc(loansCol, {assetId, holderName, holderDept, loanDate:today, dueDate, returnDate:null, status:"active", memo, createdAt: serverTimestamp()});
+  await updateDoc(doc(db,"am_assets",assetId), {status:"in_use", holderName, holderDept, updatedAt: serverTimestamp()});
+  await addDoc(historyCol, {assetId, eventType:"assigned", targetName:holderName, memo: memo||"자산 지급", createdAt: serverTimestamp()});
+  toast("자산이 지급되었습니다.");
+  document.getElementById("loanFormOverlay").classList.remove("show");
+  if(currentDetailAssetId===assetId) openAssetDetail(assetId);
+});
+
+async function returnLoan(loanId, assetId){
+  if(!isAdmin) return;
+  const today = new Date().toISOString().slice(0,10);
+  const loanSnap = await getDoc(doc(db,"am_loans", loanId));
+  const holderName = loanSnap.exists() ? loanSnap.data().holderName : null;
+  await updateDoc(doc(db,"am_loans", loanId), {status:"returned", returnDate: today});
+  await updateDoc(doc(db,"am_assets", assetId), {status:"available", holderName:null, holderDept:null, updatedAt: serverTimestamp()});
+  await addDoc(historyCol, {assetId, eventType:"returned", targetName:holderName, memo:"자산 반납", createdAt: serverTimestamp()});
+  toast("반납 처리되었습니다.");
+}
+
+renderDashboard();
+</script>
+</body>
+</html>
