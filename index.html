@@ -205,7 +205,7 @@ a{color:var(--primary);text-decoration:none;}
   </div>
 </div>
 
-<!-- 자산 지급 -->
+<div class="overlay" id="notifOverlay"><div class="modal"><h3>🔔 확인이 필요한 항목이 있어요</h3><ul class="list" id="notifList"></ul><div class="form-actions"><button class="btn btn-primary" id="closeNotifBtn">확인</button></div></div></div><!-- 자산 지급 -->
 <div class="overlay" id="loanFormOverlay">
   <div class="modal">
     <h3>자산 지급</h3>
@@ -222,7 +222,7 @@ a{color:var(--primary);text-decoration:none;}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, getDoc,
+  getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, getDoc, getDocs,
   onSnapshot, query, where, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
@@ -266,7 +266,7 @@ let currentDetailAssetId = null;
 let detailUnsubs = [];
 let editingAssetId = null;
 let loanPresetAssetId = null;
-let loanAvailableAssets = [];
+let loanAvailableAssets = []; let notifShown = false;
 
 /* ---------- 유틸 ---------- */
 function won(v){
@@ -298,7 +298,7 @@ function categoryName(id){
 /* ---------- 담당자 로그인 ----------
    admins/{uid} 문서가 있어야 관리자로 인정됩니다. role 필드로 권한을 구분합니다.
    ("superadmin": 전체 권한 / "staff": 등록·수정·대여반납만, 폐기·카테고리관리·담당자관리 불가) */
-const adminBtn = document.getElementById("adminBtn");
+async function checkAndShowNotifications(){ if(!isAdmin || notifShown || !assetsLoaded) return; const today = new Date().toISOString().slice(0,10); const in30 = new Date(); in30.setDate(new Date().getDate()+30); const in30Str = in30.toISOString().slice(0,10); const warrantySoon = assets.filter(a=>a.warrantyUntil && a.status!=="disposed" && a.warrantyUntil >= today && a.warrantyUntil <= in30Str); let overdueLoans = []; try{ const snap = await getDocs(query(loansCol, where("status","==","active"))); overdueLoans = snap.docs.map(d=>({id:d.id, ...d.data()})).filter(l=> l.dueDate && l.dueDate < today); }catch(err){} if(warrantySoon.length === 0 && overdueLoans.length === 0) return; notifShown = true; const items = []; if(warrantySoon.length){ items.push(`<li>⏰ 보증 만료 임박 자산 <strong>${warrantySoon.length}건</strong> (30일 이내)</li>`); } if(overdueLoans.length){ items.push(`<li>⚠️ 반납 기한이 지난 대여 <strong>${overdueLoans.length}건</strong></li>`); } document.getElementById("notifList").innerHTML = items.join(""); document.getElementById("notifOverlay").classList.add("show"); } document.getElementById("closeNotifBtn").addEventListener("click", ()=>{ document.getElementById("notifOverlay").classList.remove("show"); }); const adminBtn = document.getElementById("adminBtn");
 const adminOverlay = document.getElementById("adminOverlay");
 const adminEmailInput = document.getElementById("adminEmailInput");
 const adminPasswordInput = document.getElementById("adminPasswordInput");
@@ -414,7 +414,7 @@ document.querySelectorAll(".tab-btn").forEach(btn=>{
     renderCurrentTab();
   });
 });
-function renderCurrentTab(){
+function renderCurrentTab(){ checkAndShowNotifications();
   if(currentTab==="dashboard") renderDashboard();
   else if(currentTab==="assets") renderAssetsView();
   else if(currentTab==="loans") renderLoansView();
