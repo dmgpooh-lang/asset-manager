@@ -90,6 +90,23 @@ a{color:var(--primary);text-decoration:none;}
 .status-line{font-size:12px;color:var(--muted);margin-bottom:12px;}
 .checkbox-label{display:flex;align-items:center;gap:8px;font-weight:500;}
 .checkbox-label input{width:auto;}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius);}
+.table-wrap .table{border-radius:0;min-width:520px;}
+@media (max-width:600px){
+  .container{padding:14px 10px 50px;}
+  .topbar-inner{padding:10px 12px;gap:10px 14px;}
+  .brand{font-size:16px;}
+  .page-title{font-size:18px;}
+  .modal{padding:16px;border-radius:10px;}
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .page-header{align-items:stretch;}
+  .page-header .inline-form{width:100%;}
+  .page-header .inline-form .btn{flex:1;}
+}
+@media (max-width:400px){
+  .stat-grid{grid-template-columns:1fr 1fr;}
+  .brand{display:none;}
+}
 </style>
 </head>
 <body>
@@ -103,7 +120,8 @@ a{color:var(--primary);text-decoration:none;}
       <button class="tab-btn" data-tab="loans">대여/반납</button>
     </nav>
     <div class="spacer"></div>
-    <button class="btn btn-secondary btn-sm" id="adminBtn">🔒 관리자</button>
+    <button class="btn btn-ghost btn-sm" id="manageAdminsBtn" style="display:none;">담당자 관리</button>
+    <button class="btn btn-secondary btn-sm" id="adminBtn">🔒 담당자 로그인</button>
   </div>
 </div>
 
@@ -118,8 +136,9 @@ a{color:var(--primary);text-decoration:none;}
 <!-- 관리자 로그인 -->
 <div class="overlay" id="adminOverlay">
   <div class="modal">
-    <h3>관리자 로그인</h3>
-    <p class="muted">캘린더와 동일한 관리자 계정으로 로그인합니다.</p>
+    <h3>담당자 로그인</h3>
+    <p class="muted">등록된 담당자 계정으로 로그인합니다.</p>
+    <input type="email" id="adminEmailInput" placeholder="이메일" autocomplete="off" style="margin-bottom:8px;">
     <input type="password" id="adminPasswordInput" placeholder="비밀번호" autocomplete="off">
     <div class="form-actions">
       <button class="btn btn-primary" id="confirmAdminBtn">로그인</button>
@@ -157,8 +176,32 @@ a{color:var(--primary);text-decoration:none;}
       <input type="number" id="newCategoryYears" placeholder="감가상각 연수(선택)" style="width:140px;">
       <button class="btn btn-primary btn-sm" id="addCategoryBtn">추가</button>
     </div>
-    <table class="table" id="categoryTable"></table>
+    <div class="table-wrap"><table class="table" id="categoryTable"></table></div>
     <div class="form-actions"><button class="btn btn-ghost" id="closeCategoryBtn">닫기</button></div>
+  </div>
+</div>
+
+<!-- 담당자 관리 -->
+<div class="overlay" id="adminsOverlay">
+  <div class="modal">
+    <h3>담당자 관리</h3>
+    <p class="muted">계정 자체는 Firebase 콘솔에서 먼저 만든 뒤, 여기서 그 계정의 UID로 권한을 등록하세요.</p>
+    <div class="form" style="margin-bottom:14px;">
+      <label>이름</label>
+      <input type="text" id="newAdminName" placeholder="예: 김민수">
+      <label>이메일 (참고용)</label>
+      <input type="text" id="newAdminEmail" placeholder="예: minsu@company.com">
+      <label>Firebase UID</label>
+      <input type="text" id="newAdminUid" placeholder="Firebase 콘솔 Authentication에서 복사">
+      <label>역할</label>
+      <select id="newAdminRole">
+        <option value="staff">일반담당자 (등록·수정·대여반납)</option>
+        <option value="superadmin">최고관리자 (전체 권한)</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-sm" id="addAdminBtn">담당자 추가</button>
+    <div class="table-wrap" style="margin-top:14px;"><table class="table" id="adminsTable"></table></div>
+    <div class="form-actions"><button class="btn btn-ghost" id="closeAdminsBtn">닫기</button></div>
   </div>
 </div>
 
@@ -179,15 +222,13 @@ a{color:var(--primary);text-decoration:none;}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, getDoc,
+  getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, getDoc,
   onSnapshot, query, where, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-/* uiux-team-calendar와 같은 Firebase 프로젝트를 재사용합니다.
-   (컬렉션 이름은 am_ 접두사로 분리해서 캘린더 데이터와 섞이지 않습니다) */
 const firebaseConfig = {
   apiKey: "AIzaSyACTQbxR26Rqfe36KX9VNJu3yp_yosaoZs",
   authDomain: "uiux-team-calendar.firebaseapp.com",
@@ -200,9 +241,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-/* 캘린더와 동일한 관리자 계정 이메일 (Firebase 콘솔 Authentication에 등록된 값과 맞춰주세요) */
-const ADMIN_EMAIL = "admin@uiux-team-calendar.app"; // TODO: 실제 관리자 계정 이메일로 변경
-
 const categoriesCol = collection(db, "am_categories");
 const assetsCol = collection(db, "am_assets");
 const historyCol = collection(db, "am_history");
@@ -213,6 +251,8 @@ const STATUS_LABEL = {available:"사용 가능", in_use:"사용/지급중", main
 const EVENT_LABEL = {registered:"등록", assigned:"지급", returned:"반납", updated:"정보수정", maintenance:"점검", disposed:"폐기"};
 
 let isAdmin = false;
+let isSuperAdmin = false;
+let adminName = "";
 let categories = [];
 let assets = [];
 let categoriesLoaded = false, assetsLoaded = false;
@@ -224,7 +264,6 @@ let editingAssetId = null;
 let loanPresetAssetId = null;
 let loanAvailableAssets = [];
 
-/* ---------- 유틸 ---------- */
 function won(v){
   if(v === null || v === undefined || v === "") return "-";
   const n = Number(v);
@@ -251,29 +290,109 @@ function categoryName(id){
   return c ? c.name : "-";
 }
 
-/* ---------- 관리자 로그인 ----------
-   ⚠️ Firebase 콘솔 Authentication에서 Anonymous 로그인은 켜지 마세요.
-   request.auth != null 을 곧 "관리자"로 간주하는 규칙입니다. */
 const adminBtn = document.getElementById("adminBtn");
 const adminOverlay = document.getElementById("adminOverlay");
+const adminEmailInput = document.getElementById("adminEmailInput");
 const adminPasswordInput = document.getElementById("adminPasswordInput");
+const adminsCol = collection(db, "admins");
 
 function updateAdminBtn(){
-  adminBtn.textContent = isAdmin ? "🔓 관리자 (로그아웃)" : "🔒 관리자";
+  adminBtn.textContent = isAdmin ? `🔓 ${adminName || "관리자"} (로그아웃)` : "🔒 담당자 로그인";
+  document.getElementById("manageAdminsBtn").style.display = isSuperAdmin ? "" : "none";
 }
 
-/* ⚠️ TEST MODE: 실제 Firebase 인증 없이 버튼 클릭만으로 관리자 전환됩니다.
-   추후 권한 설정 시 이 블록을 onAuthStateChanged + signInWithEmailAndPassword 방식으로 되돌려야 합니다. */
-adminBtn.addEventListener("click", ()=>{
-  isAdmin = !isAdmin;
+onAuthStateChanged(auth, async (user)=>{
+  if(!user){
+    isAdmin = false; isSuperAdmin = false; adminName = "";
+    updateAdminBtn();
+    renderCurrentTab();
+    return;
+  }
+  try{
+    const adminSnap = await getDoc(doc(db, "admins", user.uid));
+    if(adminSnap.exists()){
+      isAdmin = true;
+      isSuperAdmin = adminSnap.data().role === "superadmin";
+      adminName = adminSnap.data().name || user.email;
+    } else {
+      isAdmin = false; isSuperAdmin = false; adminName = "";
+      alert("담당자로 등록되지 않은 계정입니다. 최고관리자에게 문의해주세요.");
+      await signOut(auth);
+    }
+  }catch(err){
+    isAdmin = false; isSuperAdmin = false; adminName = "";
+  }
   updateAdminBtn();
   renderCurrentTab();
-  toast(isAdmin ? "테스트 모드: 관리자로 전환했습니다." : "관리자 모드를 해제했습니다.");
+});
+adminBtn.addEventListener("click", ()=>{
+  if(isAdmin){
+    signOut(auth);
+  } else {
+    adminEmailInput.value = "";
+    adminPasswordInput.value = "";
+    adminOverlay.classList.add("show");
+    adminEmailInput.focus();
+  }
 });
 document.getElementById("cancelAdminBtn").addEventListener("click", ()=> adminOverlay.classList.remove("show"));
-document.getElementById("confirmAdminBtn").addEventListener("click", ()=> adminOverlay.classList.remove("show"));
+document.getElementById("confirmAdminBtn").addEventListener("click", tryAdminLogin);
+adminPasswordInput.addEventListener("keydown", (e)=>{ if(e.key==="Enter") tryAdminLogin(); });
+async function tryAdminLogin(){
+  const email = adminEmailInput.value.trim();
+  try{
+    await signInWithEmailAndPassword(auth, email, adminPasswordInput.value);
+    adminOverlay.classList.remove("show");
+    toast("로그인했습니다.");
+  }catch(err){
+    alert("이메일 또는 비밀번호가 올바르지 않습니다.");
+  }
+}
 
-/* ---------- 탭 전환 ---------- */
+const adminsOverlay = document.getElementById("adminsOverlay");
+let adminsListUnsub = null;
+document.getElementById("manageAdminsBtn").addEventListener("click", ()=>{
+  if(!isSuperAdmin) return;
+  adminsOverlay.classList.add("show");
+  if(adminsListUnsub) adminsListUnsub();
+  adminsListUnsub = onSnapshot(adminsCol, (snap)=>{
+    const list = snap.docs.map(d=>({uid:d.id, ...d.data()}));
+    const t = document.getElementById("adminsTable");
+    t.innerHTML = `
+      <thead><tr><th>이름</th><th>이메일</th><th>역할</th><th></th></tr></thead>
+      <tbody>
+        ${list.length ? list.map(a=>`
+          <tr><td>${escapeHtml(a.name||"-")}</td><td>${escapeHtml(a.email||"-")}</td>
+              <td>${a.role==="superadmin"?"최고관리자":"일반담당자"}</td>
+              <td><button class="btn btn-ghost btn-sm" data-remove-admin="${a.uid}">삭제</button></td></tr>`).join("")
+          : `<tr><td colspan="4" class="empty">등록된 담당자가 없습니다.</td></tr>`}
+      </tbody>`;
+    t.querySelectorAll("[data-remove-admin]").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        if(!confirm("이 담당자의 권한을 삭제할까요? (Firebase 계정 자체는 남아있고, 앱 권한만 제거됩니다)")) return;
+        await deleteDoc(doc(db, "admins", btn.dataset.removeAdmin));
+        toast("담당자 권한이 삭제되었습니다.");
+      });
+    });
+  });
+});
+document.getElementById("closeAdminsBtn").addEventListener("click", ()=>{
+  adminsOverlay.classList.remove("show");
+  if(adminsListUnsub){ adminsListUnsub(); adminsListUnsub = null; }
+});
+document.getElementById("addAdminBtn").addEventListener("click", async ()=>{
+  const name = document.getElementById("newAdminName").value.trim();
+  const email = document.getElementById("newAdminEmail").value.trim();
+  const uid = document.getElementById("newAdminUid").value.trim();
+  const role = document.getElementById("newAdminRole").value;
+  if(!name || !uid){ alert("이름과 UID는 필수입니다."); return; }
+  await setDoc(doc(db, "admins", uid), {name, email: email||null, role, addedAt: serverTimestamp()});
+  document.getElementById("newAdminName").value = "";
+  document.getElementById("newAdminEmail").value = "";
+  document.getElementById("newAdminUid").value = "";
+  toast("담당자가 추가되었습니다.");
+});
+
 document.querySelectorAll(".tab-btn").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
@@ -291,7 +410,6 @@ function renderCurrentTab(){
   else if(currentTab==="loans") renderLoansView();
 }
 
-/* ---------- 실시간 구독: 카테고리 / 자산 ---------- */
 onSnapshot(query(categoriesCol, orderBy("name")), (snap)=>{
   categories = snap.docs.map(d=>({id:d.id, ...d.data()}));
   categoriesLoaded = true;
@@ -306,7 +424,6 @@ onSnapshot(assetsCol, (snap)=>{
   renderCurrentTab();
 }, (err)=>{ document.getElementById("statusLine").textContent = "자산 로딩 오류: " + err.message; });
 
-/* ================= 대시보드 ================= */
 function renderDashboard(){
   if(currentTab!=="dashboard") return;
   const el = document.getElementById("view-dashboard");
@@ -358,7 +475,6 @@ function renderDashboard(){
   });
 }
 
-/* ================= 자산 목록 ================= */
 function renderAssetsView(){
   if(currentTab!=="assets") return;
   const el = document.getElementById("view-assets");
@@ -376,8 +492,8 @@ function renderAssetsView(){
     <div class="page-header">
       <h1 class="page-title">자산 목록</h1>
       <div class="inline-form">
-        ${isAdmin ? `<button class="btn btn-secondary btn-sm" id="manageCategoriesBtn">카테고리 관리</button>
-                     <button class="btn btn-primary btn-sm" id="newAssetBtn">+ 새 자산 등록</button>` : ``}
+        ${isSuperAdmin ? `<button class="btn btn-secondary btn-sm" id="manageCategoriesBtn">카테고리 관리</button>` : ``}
+        ${isAdmin ? `<button class="btn btn-primary btn-sm" id="newAssetBtn">+ 새 자산 등록</button>` : ``}
       </div>
     </div>
     <form class="filter-bar" id="assetFilterForm">
@@ -392,7 +508,7 @@ function renderAssetsView(){
       </select>
       <button type="submit" class="btn btn-secondary btn-sm">검색</button>
     </form>
-    <table class="table">
+    <div class="table-wrap"><table class="table">
       <thead><tr><th>자산코드</th><th>자산명</th><th>카테고리</th><th>상태</th><th>보유자</th><th>위치</th></tr></thead>
       <tbody>
         ${rows.length ? rows.map(a=>`
@@ -405,7 +521,7 @@ function renderAssetsView(){
             <td>${escapeHtml(a.location||"-")}</td>
           </tr>`).join("") : `<tr><td colspan="6" class="empty">조건에 맞는 자산이 없습니다.</td></tr>`}
       </tbody>
-    </table>
+    </table></div>
   `;
   el.querySelectorAll("[data-open-asset]").forEach(tr=>{
     tr.addEventListener("click", ()=> openAssetDetail(tr.dataset.openAsset));
@@ -419,11 +535,12 @@ function renderAssetsView(){
   });
   if(isAdmin){
     document.getElementById("newAssetBtn").addEventListener("click", ()=> openAssetForm(null));
+  }
+  if(isSuperAdmin){
     document.getElementById("manageCategoriesBtn").addEventListener("click", openCategoryManager);
   }
 }
 
-/* ================= 자산 등록/수정 ================= */
 function openAssetForm(asset){
   if(!isAdmin) return;
   editingAssetId = asset ? asset.id : null;
@@ -467,7 +584,7 @@ document.getElementById("saveAssetBtn").addEventListener("click", async ()=>{
       name, categoryId, purchaseDate, purchasePrice, warrantyUntil, location, notes,
       updatedAt: serverTimestamp()
     });
-    await addDoc(historyCol, {assetId: editingAssetId, eventType:"updated", memo:"자산 정보 수정", createdAt: serverTimestamp()});
+    await addDoc(historyCol, {assetId: editingAssetId, eventType:"updated", memo:"자산 정보 수정", by: adminName, createdAt: serverTimestamp()});
     toast("자산 정보가 수정되었습니다.");
     document.getElementById("assetFormOverlay").classList.remove("show");
     if(currentDetailAssetId===editingAssetId) openAssetDetail(editingAssetId);
@@ -478,16 +595,15 @@ document.getElementById("saveAssetBtn").addEventListener("click", async ()=>{
       status:"available", holderName:null, holderDept:null,
       createdAt: serverTimestamp(), updatedAt: serverTimestamp()
     });
-    await addDoc(historyCol, {assetId: ref.id, eventType:"registered", memo:"자산 등록: "+name, createdAt: serverTimestamp()});
+    await addDoc(historyCol, {assetId: ref.id, eventType:"registered", memo:"자산 등록: "+name, by: adminName, createdAt: serverTimestamp()});
     toast("자산이 등록되었습니다.");
     document.getElementById("assetFormOverlay").classList.remove("show");
     openAssetDetail(ref.id);
   }
 });
 
-/* ================= 카테고리 관리 ================= */
 function openCategoryManager(){
-  if(!isAdmin) return;
+  if(!isSuperAdmin) return;
   renderCategoryTable();
   document.getElementById("categoryOverlay").classList.add("show");
 }
@@ -516,7 +632,6 @@ document.getElementById("addCategoryBtn").addEventListener("click", async ()=>{
   toast("카테고리가 추가되었습니다.");
 });
 
-/* ================= 자산 상세 ================= */
 function openAssetDetail(assetId){
   currentDetailAssetId = assetId;
   detailUnsubs.forEach(u=>u());
@@ -558,7 +673,7 @@ function renderAssetDetailBody(assetId, history, loans, maintenance){
       ${isAdmin ? `<div class="inline-form">
         <button class="btn btn-secondary btn-sm" id="editAssetBtn">수정</button>
         ${a.status==="available" ? `<button class="btn btn-primary btn-sm" id="assignAssetBtn">지급하기</button>`:``}
-        ${a.status!=="disposed" ? `<button class="btn btn-danger btn-sm" id="disposeAssetBtn">폐기</button>`:``}
+        ${(isSuperAdmin && a.status!=="disposed") ? `<button class="btn btn-danger btn-sm" id="disposeAssetBtn">폐기</button>`:``}
       </div>` : ``}
     </div>
     <div class="two-col">
@@ -591,18 +706,18 @@ function renderAssetDetailBody(assetId, history, loans, maintenance){
     </div>
     <section class="panel">
       <h2>대여/지급 이력</h2>
-      ${loans.length ? `<table class="table"><thead><tr><th>보유자</th><th>지급일</th><th>반납예정</th><th>반납일</th><th>상태</th>${isAdmin?"<th></th>":""}</tr></thead>
+      ${loans.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>보유자</th><th>지급일</th><th>반납예정</th><th>반납일</th><th>상태</th>${isAdmin?"<th></th>":""}</tr></thead>
         <tbody>${loans.map(l=>`
           <tr><td>${escapeHtml(l.holderName)}</td><td>${l.loanDate||"-"}</td><td>${l.dueDate||"-"}</td><td>${l.returnDate||"-"}</td>
           <td>${l.status==="active"?`<span class="badge badge-in_use">대여중</span>`:`<span class="badge badge-available">반납완료</span>`}</td>
           ${isAdmin && l.status==="active" ? `<td><button class="btn btn-ghost btn-sm" data-return-loan="${l.id}">반납처리</button></td>` : (isAdmin?"<td></td>":"")}
-          </tr>`).join("")}</tbody></table>` : `<p class="empty">대여 이력이 없습니다.</p>`}
+          </tr>`).join("")}</tbody></table></div>` : `<p class="empty">대여 이력이 없습니다.</p>`}
     </section>
     <section class="panel">
       <h2>변경 이력</h2>
       ${history.length ? `<ul class="list">${history.map(h=>`
         <li><span class="muted">${fmtDate(h.createdAt)}</span> — <strong>${EVENT_LABEL[h.eventType]||h.eventType}</strong>
-        ${h.targetName?` → ${escapeHtml(h.targetName)}`:""} ${h.memo?`<span class="muted">(${escapeHtml(h.memo)})</span>`:""}</li>`).join("")}</ul>`
+        ${h.targetName?` → ${escapeHtml(h.targetName)}`:""} ${h.memo?`<span class="muted">(${escapeHtml(h.memo)})</span>`:""}${h.by?` <span class="muted">· ${escapeHtml(h.by)}</span>`:""}</li>`).join("")}</ul>`
         : `<p class="empty">이력이 없습니다.</p>`}
     </section>
   `;
@@ -613,7 +728,7 @@ function renderAssetDetailBody(assetId, history, loans, maintenance){
     document.getElementById("disposeAssetBtn")?.addEventListener("click", async ()=>{
       if(!confirm("이 자산을 폐기 처리할까요?")) return;
       await updateDoc(doc(db,"am_assets",a.id), {status:"disposed", holderName:null, holderDept:null, updatedAt: serverTimestamp()});
-      await addDoc(historyCol, {assetId:a.id, eventType:"disposed", memo:"폐기 처리", createdAt: serverTimestamp()});
+      await addDoc(historyCol, {assetId:a.id, eventType:"disposed", memo:"폐기 처리", by: adminName, createdAt: serverTimestamp()});
       toast("자산이 폐기 처리되었습니다.");
     });
     document.getElementById("addMaintenanceBtn")?.addEventListener("click", async ()=>{
@@ -625,7 +740,7 @@ function renderAssetDetailBody(assetId, history, loans, maintenance){
       if(type==="inspection" && a.status==="available"){
         await updateDoc(doc(db,"am_assets",a.id), {status:"maintenance", updatedAt: serverTimestamp()});
       }
-      await addDoc(historyCol, {assetId:a.id, eventType:"maintenance", memo:"점검/보증 일정 등록 ("+dueDate+")", createdAt: serverTimestamp()});
+      await addDoc(historyCol, {assetId:a.id, eventType:"maintenance", memo:"점검/보증 일정 등록 ("+dueDate+")", by: adminName, createdAt: serverTimestamp()});
       toast("점검 일정이 등록되었습니다.");
     });
     el.querySelectorAll("[data-complete-mt]").forEach(btn=>{
@@ -636,7 +751,7 @@ function renderAssetDetailBody(assetId, history, loans, maintenance){
           const newStatus = cur.holderName ? "in_use" : "available";
           await updateDoc(doc(db,"am_assets",a.id), {status:newStatus, updatedAt: serverTimestamp()});
         }
-        await addDoc(historyCol, {assetId:a.id, eventType:"maintenance", memo:"점검 완료 처리", createdAt: serverTimestamp()});
+        await addDoc(historyCol, {assetId:a.id, eventType:"maintenance", memo:"점검 완료 처리", by: adminName, createdAt: serverTimestamp()});
         toast("점검이 완료 처리되었습니다.");
       });
     });
@@ -646,7 +761,6 @@ function renderAssetDetailBody(assetId, history, loans, maintenance){
   }
 }
 
-/* ================= 대여/반납 ================= */
 function renderLoansView(){
   if(currentTab!=="loans") return;
   const el = document.getElementById("view-loans");
@@ -655,7 +769,7 @@ function renderLoansView(){
       <h1 class="page-title">대여/반납 관리</h1>
       ${isAdmin ? `<button class="btn btn-primary btn-sm" id="newLoanBtn">+ 자산 지급</button>` : ``}
     </div>
-    <div id="loansTableWrap"><p class="empty">불러오는 중…</p></div>
+    <div id="loansTableWrap" class="table-wrap"><p class="empty">불러오는 중…</p></div>
   `;
   if(isAdmin){
     document.getElementById("newLoanBtn").addEventListener("click", ()=> openLoanForm(null));
@@ -732,7 +846,7 @@ document.getElementById("saveLoanBtn").addEventListener("click", async ()=>{
   const today = new Date().toISOString().slice(0,10);
   await addDoc(loansCol, {assetId, holderName, holderDept, loanDate:today, dueDate, returnDate:null, status:"active", memo, createdAt: serverTimestamp()});
   await updateDoc(doc(db,"am_assets",assetId), {status:"in_use", holderName, holderDept, updatedAt: serverTimestamp()});
-  await addDoc(historyCol, {assetId, eventType:"assigned", targetName:holderName, memo: memo||"자산 지급", createdAt: serverTimestamp()});
+  await addDoc(historyCol, {assetId, eventType:"assigned", targetName:holderName, memo: memo||"자산 지급", by: adminName, createdAt: serverTimestamp()});
   toast("자산이 지급되었습니다.");
   document.getElementById("loanFormOverlay").classList.remove("show");
   if(currentDetailAssetId===assetId) openAssetDetail(assetId);
@@ -745,7 +859,7 @@ async function returnLoan(loanId, assetId){
   const holderName = loanSnap.exists() ? loanSnap.data().holderName : null;
   await updateDoc(doc(db,"am_loans", loanId), {status:"returned", returnDate: today});
   await updateDoc(doc(db,"am_assets", assetId), {status:"available", holderName:null, holderDept:null, updatedAt: serverTimestamp()});
-  await addDoc(historyCol, {assetId, eventType:"returned", targetName:holderName, memo:"자산 반납", createdAt: serverTimestamp()});
+  await addDoc(historyCol, {assetId, eventType:"returned", targetName:holderName, memo:"자산 반납", by: adminName, createdAt: serverTimestamp()});
   toast("반납 처리되었습니다.");
 }
 
