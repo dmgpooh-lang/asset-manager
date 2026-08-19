@@ -229,6 +229,8 @@ import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+/* uiux-team-calendar와 같은 Firebase 프로젝트를 재사용합니다.
+   (컬렉션 이름은 am_ 접두사로 분리해서 캘린더 데이터와 섞이지 않습니다) */
 const firebaseConfig = {
   apiKey: "AIzaSyACTQbxR26Rqfe36KX9VNJu3yp_yosaoZs",
   authDomain: "uiux-team-calendar.firebaseapp.com",
@@ -240,6 +242,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+/* 담당자 계정은 admins 컬렉션에 등록되어야 로그인 후 관리자 권한이 부여됩니다. */
 
 const categoriesCol = collection(db, "am_categories");
 const assetsCol = collection(db, "am_assets");
@@ -264,6 +268,7 @@ let editingAssetId = null;
 let loanPresetAssetId = null;
 let loanAvailableAssets = [];
 
+/* ---------- 유틸 ---------- */
 function won(v){
   if(v === null || v === undefined || v === "") return "-";
   const n = Number(v);
@@ -290,6 +295,9 @@ function categoryName(id){
   return c ? c.name : "-";
 }
 
+/* ---------- 담당자 로그인 ----------
+   admins/{uid} 문서가 있어야 관리자로 인정됩니다. role 필드로 권한을 구분합니다.
+   ("superadmin": 전체 권한 / "staff": 등록·수정·대여반납만, 폐기·카테고리관리·담당자관리 불가) */
 const adminBtn = document.getElementById("adminBtn");
 const adminOverlay = document.getElementById("adminOverlay");
 const adminEmailInput = document.getElementById("adminEmailInput");
@@ -345,10 +353,11 @@ async function tryAdminLogin(){
     adminOverlay.classList.remove("show");
     toast("로그인했습니다.");
   }catch(err){
-    alert("이메일 또는 비밀번호가 올바르지 않습니다.");
+    alert("로그인 실패: " + (err.code || err.message || "알 수 없는 오류"));
   }
 }
 
+/* ---------- 담당자(관리자) 관리 — 최고관리자 전용 ---------- */
 const adminsOverlay = document.getElementById("adminsOverlay");
 let adminsListUnsub = null;
 document.getElementById("manageAdminsBtn").addEventListener("click", ()=>{
@@ -393,6 +402,7 @@ document.getElementById("addAdminBtn").addEventListener("click", async ()=>{
   toast("담당자가 추가되었습니다.");
 });
 
+/* ---------- 탭 전환 ---------- */
 document.querySelectorAll(".tab-btn").forEach(btn=>{
   btn.addEventListener("click", ()=>{
     document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
@@ -410,6 +420,7 @@ function renderCurrentTab(){
   else if(currentTab==="loans") renderLoansView();
 }
 
+/* ---------- 실시간 구독: 카테고리 / 자산 ---------- */
 onSnapshot(query(categoriesCol, orderBy("name")), (snap)=>{
   categories = snap.docs.map(d=>({id:d.id, ...d.data()}));
   categoriesLoaded = true;
@@ -424,6 +435,7 @@ onSnapshot(assetsCol, (snap)=>{
   renderCurrentTab();
 }, (err)=>{ document.getElementById("statusLine").textContent = "자산 로딩 오류: " + err.message; });
 
+/* ================= 대시보드 ================= */
 function renderDashboard(){
   if(currentTab!=="dashboard") return;
   const el = document.getElementById("view-dashboard");
@@ -475,6 +487,7 @@ function renderDashboard(){
   });
 }
 
+/* ================= 자산 목록 ================= */
 function renderAssetsView(){
   if(currentTab!=="assets") return;
   const el = document.getElementById("view-assets");
@@ -541,6 +554,7 @@ function renderAssetsView(){
   }
 }
 
+/* ================= 자산 등록/수정 ================= */
 function openAssetForm(asset){
   if(!isAdmin) return;
   editingAssetId = asset ? asset.id : null;
@@ -602,6 +616,7 @@ document.getElementById("saveAssetBtn").addEventListener("click", async ()=>{
   }
 });
 
+/* ================= 카테고리 관리 ================= */
 function openCategoryManager(){
   if(!isSuperAdmin) return;
   renderCategoryTable();
@@ -632,6 +647,7 @@ document.getElementById("addCategoryBtn").addEventListener("click", async ()=>{
   toast("카테고리가 추가되었습니다.");
 });
 
+/* ================= 자산 상세 ================= */
 function openAssetDetail(assetId){
   currentDetailAssetId = assetId;
   detailUnsubs.forEach(u=>u());
@@ -761,6 +777,7 @@ function renderAssetDetailBody(assetId, history, loans, maintenance){
   }
 }
 
+/* ================= 대여/반납 ================= */
 function renderLoansView(){
   if(currentTab!=="loans") return;
   const el = document.getElementById("view-loans");
