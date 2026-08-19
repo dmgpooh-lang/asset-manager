@@ -227,7 +227,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"; import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs";
 
 /* uiux-team-calendar와 같은 Firebase 프로젝트를 재사용합니다.
    (컬렉션 이름은 am_ 접두사로 분리해서 캘린더 데이터와 섞이지 않습니다) */
@@ -298,7 +298,7 @@ function categoryName(id){
 /* ---------- 담당자 로그인 ----------
    admins/{uid} 문서가 있어야 관리자로 인정됩니다. role 필드로 권한을 구분합니다.
    ("superadmin": 전체 권한 / "staff": 등록·수정·대여반납만, 폐기·카테고리관리·담당자관리 불가) */
-async function checkAndShowNotifications(){ if(!isAdmin || notifShown || !assetsLoaded) return; const today = new Date().toISOString().slice(0,10); const in30 = new Date(); in30.setDate(new Date().getDate()+30); const in30Str = in30.toISOString().slice(0,10); const warrantySoon = assets.filter(a=>a.warrantyUntil && a.status!=="disposed" && a.warrantyUntil >= today && a.warrantyUntil <= in30Str); let overdueLoans = []; try{ const snap = await getDocs(query(loansCol, where("status","==","active"))); overdueLoans = snap.docs.map(d=>({id:d.id, ...d.data()})).filter(l=> l.dueDate && l.dueDate < today); }catch(err){} if(warrantySoon.length === 0 && overdueLoans.length === 0) return; notifShown = true; const items = []; if(warrantySoon.length){ items.push(`<li>⏰ 보증 만료 임박 자산 <strong>${warrantySoon.length}건</strong> (30일 이내)</li>`); } if(overdueLoans.length){ items.push(`<li>⚠️ 반납 기한이 지난 대여 <strong>${overdueLoans.length}건</strong></li>`); } document.getElementById("notifList").innerHTML = items.join(""); document.getElementById("notifOverlay").classList.add("show"); } document.getElementById("closeNotifBtn").addEventListener("click", ()=>{ document.getElementById("notifOverlay").classList.remove("show"); }); const adminBtn = document.getElementById("adminBtn");
+async function checkAndShowNotifications(){ if(!isAdmin || notifShown || !assetsLoaded) return; const today = new Date().toISOString().slice(0,10); const in30 = new Date(); in30.setDate(new Date().getDate()+30); const in30Str = in30.toISOString().slice(0,10); const warrantySoon = assets.filter(a=>a.warrantyUntil && a.status!=="disposed" && a.warrantyUntil >= today && a.warrantyUntil <= in30Str); let overdueLoans = []; try{ const snap = await getDocs(query(loansCol, where("status","==","active"))); overdueLoans = snap.docs.map(d=>({id:d.id, ...d.data()})).filter(l=> l.dueDate && l.dueDate < today); }catch(err){} if(warrantySoon.length === 0 && overdueLoans.length === 0) return; notifShown = true; const items = []; if(warrantySoon.length){ items.push(`<li>⏰ 보증 만료 임박 자산 <strong>${warrantySoon.length}건</strong> (30일 이내)</li>`); } if(overdueLoans.length){ items.push(`<li>⚠️ 반납 기한이 지난 대여 <strong>${overdueLoans.length}건</strong></li>`); } document.getElementById("notifList").innerHTML = items.join(""); document.getElementById("notifOverlay").classList.add("show"); } document.getElementById("closeNotifBtn").addEventListener("click", ()=>{ document.getElementById("notifOverlay").classList.remove("show"); }); function exportExcel(){ const rows = assets.map(a=>({ 자산코드:a.assetCode, 자산명:a.name, 카테고리:categoryName(a.categoryId), 상태:STATUS_LABEL[a.status]||a.status, 구매일:a.purchaseDate||"", 구매가:a.purchasePrice||"", 보증만료일:a.warrantyUntil||"", 위치:a.location||"", 보유자:a.holderName||"", 비고:a.notes||"" })); const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "자산목록"); XLSX.writeFile(wb, `자산목록_${new Date().toISOString().slice(0,10)}.xlsx`); } async function importExcelHandler(e){ const file = e.target.files[0]; if(!file) return; const buf = await file.arrayBuffer(); const wb = XLSX.read(buf, {type:"array", cellDates:true}); const ws = wb.Sheets[wb.SheetNames[0]]; const rows = XLSX.utils.sheet_to_json(ws, {defval:""}); const toDateStr = v => v instanceof Date ? v.toISOString().slice(0,10) : (v ? String(v) : null); let ok=0, dup=0, bad=0; for(const row of rows){ const assetCode = String(row["자산코드"]||"").trim(); const name = String(row["자산명"]||"").trim(); const catName = String(row["카테고리"]||"").trim(); if(!assetCode || !name || !catName){ bad++; continue; } if(assets.some(a=>a.assetCode===assetCode)){ dup++; continue; } const cat = categories.find(c=>c.name===catName); if(!cat){ bad++; continue; } const purchaseDate = toDateStr(row["구매일"]); const priceRaw = row["구매가"]; const purchasePrice = (priceRaw!==undefined && priceRaw!=="") ? Number(priceRaw) : null; const warrantyUntil = toDateStr(row["보증만료일"]); const location = row["위치"] ? String(row["위치"]) : null; const notes = row["비고"] ? String(row["비고"]) : null; const ref = await addDoc(assetsCol, {assetCode, name, categoryId:cat.id, purchaseDate, purchasePrice, warrantyUntil, location, notes, status:"available", holderName:null, holderDept:null, createdAt: serverTimestamp(), updatedAt: serverTimestamp()}); await addDoc(historyCol, {assetId: ref.id, eventType:"registered", memo:"엑셀 일괄 등록: "+name, by: adminName, createdAt: serverTimestamp()}); ok++; } e.target.value = ""; toast(`가져오기 완료: 등록 ${ok}건, 중복 ${dup}건, 오류 ${bad}건`); } const adminBtn = document.getElementById("adminBtn");
 const adminOverlay = document.getElementById("adminOverlay");
 const adminEmailInput = document.getElementById("adminEmailInput");
 const adminPasswordInput = document.getElementById("adminPasswordInput");
@@ -506,7 +506,7 @@ function renderAssetsView(){
       <h1 class="page-title">자산 목록</h1>
       <div class="inline-form">
         ${isSuperAdmin ? `<button class="btn btn-secondary btn-sm" id="manageCategoriesBtn">카테고리 관리</button>` : ``}
-        ${isAdmin ? `<button class="btn btn-primary btn-sm" id="newAssetBtn">+ 새 자산 등록</button>` : ``}
+        ${isAdmin ? `<button class="btn btn-secondary btn-sm" id="exportExcelBtn">엑셀 내보내기</button><label class="btn btn-secondary btn-sm" style="cursor:pointer;">엑셀 가져오기<input type="file" id="importExcelInput" accept=".xlsx,.xls" style="display:none;"></label>` : ``}${isAdmin ? `<button class="btn btn-primary btn-sm" id="newAssetBtn">+ 새 자산 등록</button>` : ``}
       </div>
     </div>
     <form class="filter-bar" id="assetFilterForm">
@@ -547,7 +547,7 @@ function renderAssetsView(){
     renderAssetsView();
   });
   if(isAdmin){
-    document.getElementById("newAssetBtn").addEventListener("click", ()=> openAssetForm(null));
+    document.getElementById("newAssetBtn").addEventListener("click", ()=> openAssetForm(null)); document.getElementById("exportExcelBtn").addEventListener("click", exportExcel); document.getElementById("importExcelInput").addEventListener("change", importExcelHandler);
   }
   if(isSuperAdmin){
     document.getElementById("manageCategoriesBtn").addEventListener("click", openCategoryManager);
